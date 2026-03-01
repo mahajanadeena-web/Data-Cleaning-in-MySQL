@@ -1,194 +1,45 @@
--- Data Cleaning
+Case Study: Data Cleaning of Global Layoffs Dataset
 
-SELECT *
-FROM layoffs;
+Project Title
+Data Cleaning and Standardization of Layoffs Dataset Using SQL
 
--- 1. Remove Duplications
--- 2. Standardize the Data
--- 3. Null Values or Blank Values
--- 4. Remove any Columns
+Objective
+The dataset contained records of company layoffs across industries, countries, and funding stages. However, it suffered from:
+• 	Duplicate entries
+• 	Inconsistent formatting (extra spaces, trailing characters)
+• 	Null or blank values
+• 	Non-standard date formats
+The objective was to clean and standardize the dataset to ensure accuracy and reliability for downstream analysis.
 
-CREATE TABLE layoffs_staging
-LIKE layoffs;
+Approach
+1. Remove Duplicates
+•	Used ROW_NUMBER() with PARTITION BY to identify duplicate rows
+•	Deleted rows where row_num > 1
+2. Standardizing Data
+•	Trimmed whitespace from company names.
+•	Unified industry labels (e.g., “Crypto%” → “Crypto”).
+•	Cleaned country names (removed trailing periods, standardized “United States”).
+•	Converted string dates (MM/DD/YYYY) into proper SQL DATE type using STR_TO_DATE.
+3. Handle Nulls and Blanks
+•	Set empty industry values to NULL.
+•	Filled missing industries by joining with other rows of the same company.
+•	Deleted rows where both total_laid_off and percentage_laid_off were missing.
+4. Remove Any Column
+•	Deleted the row_num column using ALTER TABLE and DROP COLUMN
 
-INSERT layoffs_staging
-SELECT * 
-FROM layoffs;
+Results
+•	Removed duplicate records, ensuring unique entries.
+•	Standardized company, industry, and country fields for consistency.
+•	Converted all dates into proper SQL DATE format.
+•	Cleaned nulls and blanks, ensuring the dataset is ready for analysis.
 
-SELECT *,
-ROW_NUMBER() OVER(
-PARTITION BY company, industry, total_laid_off, percentage_laid_off, `date`) AS row_num
-FROM layoffs_staging;
+Key Learnings
+•	Practical use of window functions (ROW_NUMBER) for deduplication.
+•	Importance of string functions (TRIM, LIKE) in text cleaning.
+•	Handling null values with joins and conditional updates.
+•	Building a repeatable cleaning pipeline for real-world datasets.
 
-WITH duplicate_cte AS(
-	SELECT *,
-	ROW_NUMBER() OVER(
-	PARTITION BY company, location, industry, 
-    total_laid_off, percentage_laid_off,
-    `date`, country, funds_raised_millions
-	) AS row_num
-	FROM layoffs_staging
-)
-SELECT * 
-FROM duplicate_cte
-WHERE row_num > 1;
-
-SELECT *
-FROM layoffs_staging
-WHERE company = 'Casper'; 
-
-WITH duplicate_cte AS(
-	SELECT *,
-	ROW_NUMBER() OVER(
-	PARTITION BY company, location, industry, 
-    total_laid_off, percentage_laid_off,
-    `date`, country, funds_raised_millions
-	) AS row_num
-	FROM layoffs_staging
-)
-DELETE 
-FROM duplicate_cte
-WHERE row_num > 1;
-
-CREATE TABLE `layoffs_staging2` (
-  `company` text,
-  `location` text,
-  `industry` text,
-  `total_laid_off` int DEFAULT NULL,
-  `percentage_laid_off` text,
-  `date` text,
-  `stage` text,
-  `country` text,
-  `funds_raised_millions` int DEFAULT NULL,
-  `row_num` INT 
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
-
-SELECT *
-FROM layoffs_staging2;
-
-INSERT INTO layoffs_staging2
-SELECT *,
-ROW_NUMBER() OVER(
-PARTITION BY company, location, industry, 
-total_laid_off, percentage_laid_off,
-`date`, country, funds_raised_millions
-) AS row_num
-FROM layoffs_staging;
-
-SELECT *
-FROM layoffs_staging2
-WHERE row_num > 1;
-
-DELETE
-FROM layoffs_staging2
-WHERE row_num > 1;
-
-SELECT *
-FROM layoffs_staging2;
-
--- Standardizing Data
-
-SELECT company, TRIM(company)
-FROM layoffs_staging2;
-
-UPDATE layoffs_staging2
-SET company = TRIM(company);
-
-SELECT DISTINCT industry
-FROM layoffs_staging2
-ORDER BY 1;
-
-SELECT *
-FROM layoffs_staging2
-WHERE industry LIKE 'Crypto%';
-
-UPDATE layoffs_staging2
-SET industry = 'Crypto'
-WHERE industry LIKE 'Crypto%';
-
-SELECT DISTINCT industry
-FROM layoffs_staging2;
-
-SELECT DISTINCT country
-FROM layoffs_staging2
-ORDER BY 1;
-
-SELECT *
-FROM layoffs_staging2
-WHERE country LIKE 'United States%';
-
-SELECT DISTINCT country, TRIM(TRAILING '.' FROM country)
-FROM layoffs_staging2
-ORDER BY 1;
-
-UPDATE layoffs_staging2
-SET country = TRIM(TRAILING '.' FROM country)
-WHERE country LIKE 'United States%';
-
-SELECT *
-FROM layoffs_staging2;
-
-SELECT `date`,
-str_to_date(`date`, '%m/%d/%Y')
-FROM layoffs_staging2;
-
-UPDATE layoffs_staging2
-SET `date` = str_to_date(`date`, '%m/%d/%Y');
-
-SELECT `date`
-FROM layoffs_staging2;
-
-ALTER TABLE layoffs_staging2
-MODIFY COLUMN `date` DATE;
-
-SELECT *
-FROM layoffs_staging2
-WHERE total_laid_off IS NULL
-AND percentage_laid_off IS NULL;
-
-UPDATE layoffs_staging2
-SET industry = NULL
-WHERE industry = '';
-
-SELECT *
-FROM layoffs_staging2
-WHERE industry IS NULL
-OR industry = '';
-
-SELECT *
-FROM layoffs_staging2
-WHERE company = 'Airbnb';
-
-SELECT *
-FROM layoffs_staging2 t1
-JOIN layoffs_staging2 t2
-	ON t1.company = t2.company
-WHERE (t1.industry IS NULL OR t1.industry = '')
-AND t2.industry IS NOT NULL;
-
-UPDATE layoffs_staging2 t1
-JOIN layoffs_staging2 t2
-	ON t1.company = t2.company
-SET t1.industry = t2.industry
-WHERE t1.industry IS NULL
-AND t2.industry IS NOT NULL;
-
-SELECT *
-FROM layoffs_staging2
-WHERE company LIKE 'Bally%';
-
-SELECT *
-FROM layoffs_staging2;
-
-SELECT *
-FROM layoffs_staging2
-WHERE total_laid_off IS NULL
-AND percentage_laid_off IS NULL;
-
-DELETE 
-FROM layoffs_staging2
-WHERE total_laid_off IS NULL
-AND percentage_laid_off IS NULL;
-
-ALTER TABLE layoffs_staging2
-DROP COLUMN row_num;
+Next Steps
+•	Perform exploratory data analysis (EDA) on the cleaned dataset.
+•	Visualize layoffs trends by industry, country, and funding stage.
+•	Share insights in dashboards (Tableau/Power BI) or reports.
